@@ -6,8 +6,7 @@ from pdf_gen import
 generate_resilience_pdf
 
 st.set_page_config(
-    page_title="Resilio | Home Resilience 
-Audit",
+    page_title="Resilio | Home Resilience Audit",
     page_icon="🛡️",
     layout="centered"
 )
