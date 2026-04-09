@@ -1,79 +1,109 @@
 def calculate_water_needs(people, days, climate, cats=0, dogs=0, hygiene_plus=True):
     """
-    Calculates total water requirements based on household size, climate, pets, and hygiene needs.
+    Calculate water needs based on NZ Civil Defence guidelines.
+    
+    Base: 3L per person/day (drinking + basic hygiene)
+    Heat multiplier: +33% for High Heat / Extreme Heat
+    Dignity water: 20L per person/day if hygiene_plus is True
+    Pets: 1.5L per dog, 0.3L per cat per day
+    
+    Returns dictionary with daily requirement, total liters,
+    containers needed (20L), and total weight in kg.
     """
+    # Base requirement per person per day (drinking + basic hygiene)
+    base_liters_per_person = 3.0
 
-    # Base human requirement (liters per person per day)
-    base_per_person = 3.0  # drinking + minimal cooking
+    # Climate adjustment (hot climate increases needs by ~33%)
+    if climate in ["High Heat", "Extreme Heat", "Arid/Hot"]:
+        base_liters_per_person = base_liters_per_person * 1.33
 
-    # Climate adjustment
-    if climate == "Arid/Hot":
-        base_per_person *= 1.3  # 30% more water in high heat
+    # If hygiene_plus is selected, use comprehensive 20L per person standard
+    if hygiene_plus:
+        base_liters_per_person = 20.0
 
-    # Pets
-    cat_water = cats * 0.25  # 250ml per cat per day
-    dog_water = dogs * 1.0   # 1L per dog per day
+    # Pet water requirements
+    pet_water_daily = (dogs * 1.5) + (cats * 0.3)
 
-    # Hygiene / dignity water
-    hygiene_water = 2.0 if hygiene_plus else 0.5
+    # Daily total for all people + pets
+    daily_requirement = (people * base_liters_per_person) + pet_water_daily
 
-    daily_requirement = (people * base_per_person) + cat_water + dog_water + hygiene_water
+    # Total for the planned duration
     total_liters = daily_requirement * days
 
-    containers_needed_20L = total_liters / 20.0
-    weight_kg = total_liters  # 1L = 1kg
+    # Number of 20L containers needed
+    containers_needed = total_liters / 20.0
+
+    # Weight in kg (1 liter of water = 1 kg)
+    weight_kg = total_liters
 
     return {
         "daily_requirement": round(daily_requirement, 1),
         "total_liters": round(total_liters, 1),
-        "containers_needed_20L": round(containers_needed_20L, 1),
-        "weight_kg": round(weight_kg, 1)
+        "containers_needed_20L": containers_needed,
+        "weight_kg": weight_kg
     }
 
 
-def calculate_power_needs(fridge=True, phones=0, laptops=0, led_lights=0, hours_of_light=5):
+def calculate_power_needs(fridge=True, phones=2, laptops=1, led_lights=3, hours_of_light=5):
     """
-    Calculates daily watt-hour requirements and recommended battery size.
+    Estimate daily watt-hours based on typical device usage.
+    
+    Assumptions:
+    - Fridge: 200W running, cycles ~8 hours/day = 1600 Wh/day
+    - Phone charger: 10W, 2 hours to charge = 20 Wh per phone
+    - Laptop: 50W, assume 2 hours of use = 100 Wh per laptop
+    - LED light: 10W each, used for specified hours
+    
+    Returns dictionary with daily Wh required, recommended battery size
+    (daily need + 20% buffer), and rough solar estimate.
     """
+    daily_wh = 0
 
-    total_wh = 0
-
-    # Fridge consumption (approx)
+    # Fridge: 200W running, cycles ~8 hours/day = 1600 Wh/day
     if fridge:
-        total_wh += 600  # Wh/day for efficient cycling
+        daily_wh += 1600
 
-    # Phones
-    total_wh += phones * 15  # 15Wh per phone per day
+    # Phones: 10W charger, 2 hours to charge = 20 Wh per phone
+    daily_wh += phones * 20
 
-    # Laptops
-    total_wh += laptops * 60  # 60Wh per laptop per day
+    # Laptops: 50W, assume 2 hours of use = 100 Wh per laptop
+    daily_wh += laptops * 100
 
-    # LED lights
-    total_wh += led_lights * 5 * hours_of_light  # 5W bulbs
+    # LED lights: 10W each, used for specified hours
+    daily_wh += led_lights * 10 * hours_of_light
 
-    # Safety margin
-    recommended_battery = total_wh * 1.2
+    # Recommended battery size: daily need + 20% buffer
+    recommended_battery = daily_wh * 1.2
 
-    # Solar estimate (assuming 4 hours peak sun)
-    solar_panel_est = recommended_battery / 4.0
+    # Solar estimate: ~30% of daily need as a rough average (assumes 100W panel)
+    solar_est = daily_wh * 0.3
 
     return {
-        "daily_wh_required": round(total_wh, 1),
-        "recommended_battery_size": round(recommended_battery, 1),
-        "solar_panel_est": round(solar_panel_est, 1)
+        "daily_wh_required": round(daily_wh, 0),
+        "recommended_battery_size": round(recommended_battery, 0),
+        "solar_panel_est": round(solar_est, 1)
     }
 
 
 def calculate_sanitation_needs(people, days):
     """
-    Calculates essential waste management needs.
+    Calculate emergency sanitation supplies using the two-bucket system.
+    
+    Assumptions:
+    - 2 buckets total (one for waste, one for cover material/supplies)
+    - 0.5 kg cover material per person per day (sawdust, dry leaves, etc.)
+    - 0.1 L hand sanitizer per person per day
+    
+    Returns dictionary with buckets needed, cover material in kg, and sanitizer in liters.
     """
-
-    # 1kg of cover material per person per week
-    cover_material_kg = (people * (days / 7)) * 1.0
-
+    buckets_needed = 2
+    
+    cover_material_kg = round(people * days * 0.5, 1)
+    
+    sanitizer_liters = round(people * days * 0.1, 1)
+    
     return {
-        "buckets_needed": 2,  # Standard two-bucket system
-        "cover_material_kg": round(cover_material_kg, 1),
-        "sanitizer_liters": round(people * 0.5, 1)  # 500ml per person
+        "buckets_needed": buckets_needed,
+        "cover_material_kg": cover_material_kg,
+        "sanitizer_liters": sanitizer_liters
     }
