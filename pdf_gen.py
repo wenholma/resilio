@@ -20,7 +20,7 @@ class PDF(FPDF):
     def _clean_text(self, text):
         replacements = {
             "—": "-", "–": "-", "•": "-", "’": "'", "‘": "'",
-            "“": '"', "”": '"', "…": "...", "✓": "√", "✗": "x"
+            "“": '"', "”": '"', "…": "...", "✓": "√", "✗": "x", "•": "-"
         }
         for old, new in replacements.items():
             text = text.replace(old, new)
@@ -56,18 +56,12 @@ class PDF(FPDF):
                 self.cell(5, 5, " ", 0, 0)
         self.ln(1)
 
-    def metric_box(self, label, value, unit):
-        self.set_font("Helvetica", "B", 10)
-        self.cell(60, 8, self._clean_text(label), 0, 0)
-        self.set_font("Helvetica", "", 10)
-        self.cell(40, 8, f"{value} {unit}", 0, 1)
-
 def generate_calmera_pdf(data):
     pdf = PDF()
     pdf.add_page()
     pdf.set_auto_page_break(auto=True, margin=25)
 
-    # PAGE 1: Cover + Executive Snapshot
+    # PAGE 1: Cover
     pdf.set_font("Helvetica", "B", 24)
     pdf.set_text_color(0, 51, 102)
     pdf.cell(0, 20, "Calmera: Your Household Resilience Blueprint", 0, 1, "C")
@@ -94,36 +88,31 @@ def generate_calmera_pdf(data):
 
     pdf.section_title("Your Top 3 Immediate Priorities:")
     next_steps = data.get('next_steps', [])
-    if len(next_steps) >= 3:
-        pdf.bullet_point(next_steps[0])
-        pdf.bullet_point(next_steps[1])
-        pdf.bullet_point(next_steps[2])
-    else:
-        pdf.bullet_point("Secure your emergency water supply.")
-        pdf.bullet_point("Establish backup communications.")
-        pdf.bullet_point("Build your sanitation kit.")
+    for step in next_steps[:3]:
+        pdf.bullet_point(step)
 
     # PAGE 2: Water Strategy
     pdf.add_page()
     pdf.section_title("Water Strategy - Your Most Critical Asset")
     pdf.body_text("Water is heavy, takes up space, and is the first thing to disappear during an emergency. Public health guidelines mandate a specific amount for drinking, hygiene, and cooking.")
-
-    daily_water = data['water_daily']
+    
     total_water = data['water_total']
+    daily_water = data['water_daily']
+    pdf.body_text(f"Your {data['days']}-Day Household Requirement: {total_water:.0f} Litres total")
+    pdf.body_text(f"(Based on a daily target of {daily_water:.0f} Litres/day for {data['people']} adults, including a climate adjustment).")
+    
+    pdf.subsection_title("Your Daily Breakdown:")
+    pdf.body_text(f"- Drinking & Hydration: {daily_water * 0.5:.0f} L / day")
+    pdf.body_text(f"- Cooking & Food Prep: {daily_water * 0.25:.0f} L / day")
+    pdf.body_text(f"- Basic Hygiene: {daily_water * 0.25:.0f} L / day")
+
     containers = data['water_containers']
     weight = data['water_weight']
-    pdf.body_text(f"Your {data['days']}-Day Household Requirement: {total_water:.0f} Litres total")
-    pdf.body_text(f"- Drinking & Hydration: {daily_water * 0.5:.0f} L")
-    pdf.body_text(f"- Cooking & Food Prep: {daily_water * 0.25:.0f} L")
-    pdf.body_text(f"- Basic Hygiene: {daily_water * 0.25:.0f} L")
-    if data['climate_class'] in ["High Heat", "Extreme Heat"]:
-        pdf.body_text("(Note: As you are in a High Heat climate, we have factored in a 20% increase for safe hydration).")
-
     pdf.subsection_title("How to Actually Store This:")
     pdf.body_text("You don't need expensive water tanks. The easiest way to store this much water is using standard, heavy-duty 20-litre jerry cans.")
     pdf.body_text(f"- You need: {int(containers)} x 20L Food-Grade Water Containers.")
     pdf.body_text("- Where to buy: Bunnings, Mitre 10, or local camping stores (approx. NZD 25-35 each). Make sure they are stamped 'Food Grade'.")
-    pdf.body_text(f"- Storage Rules: Store them on the floor (never on high shelves, {weight:.0f}L weighs {weight:.0f}kg). Keep out of direct sunlight.")
+    pdf.body_text(f"- Storage Rules: Store them on the floor (never on high shelves; {total_water:.0f}L weighs {weight:.0f}kg). Keep out of direct sunlight.")
     pdf.body_text("- Maintenance: Add a piece of masking tape with today's date. Empty and refill once a year (or every 6 months if using tap water).")
 
     # PAGE 3: Power & Communications
@@ -144,9 +133,12 @@ def generate_calmera_pdf(data):
     pdf.body_text("- What you need: Two 20,000mAh Power Banks (approx. NZD 60-100 each from PB Tech or Noel Leeming) and a pack of battery-powered lights or headlamps.")
 
     pdf.subsection_title("Communications Checklist:")
-    pdf.body_text("- [ ] AM/FM Emergency Radio: Battery-powered or hand-crank. Crucial for Civil Defence updates when mobile towers fail.")
-    pdf.body_text("- [ ] Printed Contact List: Write down doctor, school, and out-of-town family numbers. You won't remember them if your phone dies.")
-    pdf.body_text("- [ ] Local Paper Map: Helps you navigate if GPS fails.")
+    radio_status = "Yes" if data['has_radio'] else "No"
+    contacts_status = "Yes" if data['has_contacts'] else "No"
+    map_status = "Yes" if data['has_map'] else "No"
+    pdf.body_text(f"- [ ] AM/FM Emergency Radio: {radio_status}. Crucial for Civil Defence updates when mobile towers fail.")
+    pdf.body_text(f"- [ ] Printed Contact List: {contacts_status}. Write down doctor, school, and out-of-town family numbers.")
+    pdf.body_text(f"- [ ] Local Paper Map: {map_status}. Helps you navigate if GPS fails.")
 
     # PAGE 4: Sanitation System
     pdf.add_page()
@@ -163,23 +155,23 @@ def generate_calmera_pdf(data):
     pdf.body_text("1. Bucket 1 (The Toilet): Line this bucket with a heavy-duty bag. You will use this bucket for waste.")
     pdf.body_text("2. The Golden Rule: After every single use, cover the waste completely with a generous scoop of Cover Material. This suffocates odors and repels flies.")
     pdf.body_text("3. Bucket 2 (The Storage): Use this to store your clean cover material, spare bags, toilet paper, and sanitiser. Keep it right next to Bucket 1.")
-    pdf.body_text("4. When the bag in Bucket 1 is full, tie it off securely and store it outside in a sealed wheelie bin until local authorities advise on safe disposal.")
+    pdf.body_text("4. Disposal: When the bag in Bucket 1 is full, tie it off securely and store it outside in a sealed wheelie bin until local authorities advise on safe disposal.")
 
-    # PAGE 5: Shopping List (tear-out)
+    # PAGE 5: Shopping List
     pdf.add_page()
     pdf.section_title("Your 'Grab-and-Go' Weekend Shopping List")
-    pdf.body_text("Tear this page out and take it to the hardware store.")
+    pdf.body_text("Tear this page out and take it to the store.")
 
     pdf.subsection_title("Hardware Store (Mitre 10 / Bunnings)")
     pdf.body_text(f"[ ] {int(containers)} x 20L Food-Grade Water Containers")
     pdf.body_text("[ ] 2 x 20L Heavy Duty Buckets with lids")
-    pdf.body_text("[ ] 1 x Bag of Sawdust / Wood Shavings (or kitty litter from supermarket)")
+    pdf.body_text("[ ] 1 x Bag of Sawdust / Wood Shavings (or kitty litter from the supermarket)")
     pdf.body_text("[ ] Heavy-duty rubbish bags")
     pdf.body_text("[ ] Masking tape and a permanent marker (for dating water)")
-    pdf.body_text("[ ] Battery-powered radio & spare batteries")
 
-    pdf.subsection_title("Electronics Store (PB Tech / Noel Leeming)")
+    pdf.subsection_title("Electronics / Online (PB Tech / Noel Leeming)")
     pdf.body_text("[ ] 2 x 20,000mAh Power Banks (or Portable Power Station if budget allows)")
+    pdf.body_text("[ ] Battery-powered radio & spare batteries")
     pdf.body_text("[ ] Extra charging cables for your specific phones")
 
     pdf.subsection_title("Supermarket / Pharmacy")
@@ -187,7 +179,7 @@ def generate_calmera_pdf(data):
     pdf.body_text("[ ] Basic First Aid supplies (Panadol, plasters, antiseptic cream)")
     pdf.body_text("[ ] 7 days of non-perishable food (canned goods, rice, oats - buy what you actually eat)")
 
-    # PAGE 6: 30-Day Implementation Plan & Disclaimer
+    # PAGE 6: 30-Day Implementation Plan & Legal
     pdf.add_page()
     pdf.section_title("30-Day Implementation Plan")
     pdf.body_text("Don't try to do this all in one day. Spread the cost and the effort over four weekends.")
@@ -196,13 +188,16 @@ def generate_calmera_pdf(data):
     pdf.body_text("- Weekend 3: Power & Comms. Order your power banks/power station, buy an emergency radio, and print out your family emergency contacts.")
     pdf.body_text("- Weekend 4: Food & First Aid. Do a larger-than-normal supermarket shop. Buy extra canned goods, pasta, and ensure your first aid kit is fully stocked.")
 
-    pdf.section_title("Important Note")
-    pdf.body_text("This blueprint provides general household preparedness guidance only. It does not replace official instructions from emergency authorities. Always follow local civil defence or public health advice during an actual emergency.")
-    pdf.body_text("Calmera makes no warranties about the accuracy or completeness of the information. Use at your own risk.")
+    pdf.section_title("Important Legal & Safety Information")
+    pdf.subsection_title("Not Official Advice")
+    pdf.body_text("This blueprint provides general household preparedness guidance only based on standard public health frameworks. It does not replace official instructions from emergency authorities, first responders, or medical professionals. Always follow local Civil Defence, public health, and government advice during an actual emergency.")
+    
+    pdf.subsection_title("Limitation of Liability")
+    pdf.body_text("Calmera is a planning aid and does not predict, prevent, or guarantee protection from any emergency, disaster, or disruption. Results are estimates based on user-provided inputs. Calmera and its creators make no warranties, express or implied, regarding the accuracy, completeness, or fitness for purpose of the information provided. By using this document, you acknowledge that you do so at your own risk, and Calmera accepts no liability for any loss, injury, or damage incurred while implementing these suggestions or during an emergency event.")
 
     pdf.set_y(-20)
     pdf.set_font("Helvetica", "I", 9)
     pdf.set_text_color(100, 100, 100)
-    pdf.cell(0, 10, f"Generated by Calmera on {datetime.now().strftime('%d %B %Y')}", 0, 0, "C")
+    pdf.cell(0, 10, f"Generated by Calmera on {datetime.now().strftime('%d %B %Y')}. All rights reserved.", 0, 0, "C")
 
     return bytes(pdf.output(dest="S"))
