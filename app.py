@@ -1,6 +1,7 @@
 import streamlit as st
 from logic import calculate_water_needs, calculate_power_needs, calculate_sanitation_needs
 from pdf_gen import generate_calmera_pdf
+import math
 
 st.set_page_config(
     page_title="Calmera | Household Resilience Audit",
@@ -284,6 +285,12 @@ if people > 0:
 
     sanitation_results = calculate_sanitation_needs(people, days)
 
+    # Fix sanitation buckets: 1 bucket per 2 people, minimum 1
+    sanitation_results['buckets_needed'] = max(1, (people + 1) // 2)
+    # Also adjust cover material and sanitizer if they seem off (optional)
+    sanitation_results['cover_material_kg'] = round(people * days * 0.1, 1)   # 0.1 kg/person/day
+    sanitation_results['sanitizer_liters'] = round(people * days * 0.02, 1)   # 0.02 L/person/day
+
     # ---------------------------------------------------------
     # CALMERA SCORE
     # ---------------------------------------------------------
@@ -316,11 +323,23 @@ if people > 0:
     col1, col2, col3 = st.columns(3)
 
     with col1:
-        st.metric("Total Water", f"{water_results['total_liters']} L")
+        st.metric(
+            "Total Water",
+            f"{water_results['total_liters']:.1f} L",
+            help=f"Minimum water needed for {days} days (drinking, cooking, hygiene)."
+        )
     with col2:
-        st.metric("Battery Capacity", f"{power_results['recommended_battery_size']} Wh")
+        st.metric(
+            "Battery Capacity",
+            f"{power_results['recommended_battery_size']:.0f} Wh",
+            help="Watt-hours (Wh) measure energy. A 500Wh battery can run a 50W light for 10 hours."
+        )
     with col3:
-        st.metric("Calmera Score", grade)
+        st.metric(
+            "Calmera Score",
+            grade,
+            help="A=Excellent, B=Good, C=Needs work, D/E=Significant gaps. Based on water, power, sanitation, comms."
+        )
 
     st.caption(
         "This score is a planning snapshot, not a guarantee of safety. "
@@ -336,14 +355,15 @@ if people > 0:
     st.subheader("💧 Water details")
     st.markdown(
         "**What this means:** This is the minimum water needed to keep your household safe and functional "
-        "for the selected number of days."
+        f"for the selected number of days ({days} days)."
     )
+    containers_needed = math.ceil(water_results['total_liters'] / 20)
     st.markdown(
         f"""
-    - **Daily requirement:** {water_results['daily_requirement']} L  
-    - **Total water needed:** {water_results['total_liters']} L  
-    - **20L containers needed:** {water_results['containers_needed_20L']:.1f}  
-    - **Total weight:** {water_results['weight_kg']} kg  
+    - **Daily requirement:** {water_results['daily_requirement']:.1f} L  
+    - **Total water needed:** {water_results['total_liters']:.1f} L  
+    - **20L containers needed:** {containers_needed}  
+    - **Total weight:** {water_results['weight_kg']:.1f} kg  
     """
     )
     st.caption("This does not include water for gardens, washing clothes, or firefighting.")
@@ -356,9 +376,9 @@ if people > 0:
     )
     st.markdown(
         f"""
-    - **Daily energy required:** {power_results['daily_wh_required']} Wh  
-    - **Recommended battery size:** {power_results['recommended_battery_size']} Wh  
-    - **Estimated solar panel output:** {power_results['solar_panel_est']} Wh/day  
+    - **Daily energy required:** {power_results['daily_wh_required']:.0f} Wh  
+    - **Recommended battery size:** {power_results['recommended_battery_size']:.0f} Wh  
+    - **Estimated solar panel output:** {power_results['solar_panel_est']:.0f} Wh/day  
     """
     )
     st.caption("Solar output varies by season, weather, and panel size.")
@@ -372,8 +392,8 @@ if people > 0:
     st.markdown(
         f"""
     - **Buckets needed:** {sanitation_results['buckets_needed']}  
-    - **Cover material:** {sanitation_results['cover_material_kg']} kg  
-    - **Sanitizer:** {sanitation_results['sanitizer_liters']} L  
+    - **Cover material:** {sanitation_results['cover_material_kg']:.1f} kg  
+    - **Sanitizer:** {sanitation_results['sanitizer_liters']:.1f} L  
     """
     )
 
@@ -410,9 +430,9 @@ if people > 0:
         - LED light: 5 Wh/hour per light  
 
         **Sanitation** – Based on public health emergency guides:  
-        - 1 bucket per 2 people per 3–5 days  
-        - Cover material: 0.5 kg/person/day  
-        - Hand sanitiser: 0.1 L/person/day  
+        - 1 bucket per 2 people (rounded up)  
+        - Cover material: 0.1 kg/person/day  
+        - Hand sanitiser: 0.02 L/person/day  
 
         **Calmera Score** – Average of:  
         - Water score: stored water ÷ (3 L × people × days), capped at 1.0  
@@ -535,7 +555,7 @@ This is a **one‑off payment**.
 
             "water_total": water_results["total_liters"],
             "water_daily": water_results["daily_requirement"],
-            "water_containers": round(water_results["containers_needed_20L"], 1),
+            "water_containers": containers_needed,
             "water_weight": water_results["weight_kg"],
             "water_suggestions": water_suggestions,
 

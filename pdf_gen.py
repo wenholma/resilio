@@ -1,6 +1,7 @@
 from fpdf import FPDF
 from datetime import datetime
 import textwrap
+import math
 
 class PDF(FPDF):
     def header(self):
@@ -18,6 +19,19 @@ class PDF(FPDF):
         self.cell(0, 6, "For personal use only. Not official emergency advice.", 0, 0, "C")
 
     def _clean_text(self, text):
+        # Remove all emojis and special characters
+        import re
+        # Remove emoji patterns
+        emoji_pattern = re.compile("["
+            u"\U0001F600-\U0001F64F"  # emoticons
+            u"\U0001F300-\U0001F5FF"  # symbols & pictographs
+            u"\U0001F680-\U0001F6FF"  # transport & map symbols
+            u"\U0001F1E0-\U0001F1FF"  # flags (iOS)
+            u"\U00002702-\U000027B0"
+            u"\U000024C2-\U0001F251"
+            "]+", flags=re.UNICODE)
+        text = emoji_pattern.sub(r'', text)
+        # Replace other punctuation
         replacements = {
             "—": "-", "–": "-", "•": "-", "’": "'", "‘": "'",
             "“": '"', "”": '"', "…": "...", "✓": "√", "✗": "x"
@@ -83,6 +97,7 @@ def generate_calmera_pdf(data):
     else:
         score_msg = f"Your Calmera Readiness Score: {score} (Significant Gaps)"
     pdf.section_title(score_msg)
+    pdf.body_text("This score is based on your water storage, power backup, sanitation plan, and communication tools. A or B means you're in good shape. C means you have some gaps. D or E means immediate action is recommended.")
     pdf.body_text("Your household has a solid foundation but is currently vulnerable to disruptions lasting longer than 48 hours. Small, targeted investments this weekend will significantly boost your family's resilience.")
 
     pdf.section_title("Your Top 3 Immediate Priorities:")
@@ -93,25 +108,31 @@ def generate_calmera_pdf(data):
     # PAGE 2: Water Strategy
     pdf.add_page()
     pdf.section_title("Water Strategy - Your Most Critical Asset")
-    pdf.body_text("Water is heavy, takes up space, and is the first thing to disappear during an emergency. Public health guidelines mandate a specific amount for drinking, hygiene, and cooking.")
+    pdf.body_text("Water is heavy, takes up space, and is the first thing to disappear during an emergency. Public health guidelines recommend at least 3 litres per person per day for drinking, cooking, and basic hygiene.")
     
     total_water = data['water_total']
     daily_water = data['water_daily']
     pdf.body_text(f"Your {data['days']}-Day Household Requirement: {total_water:.0f} Litres total")
-    pdf.body_text(f"(Based on a daily target of {daily_water:.0f} Litres/day for {data['people']} adults, including a climate adjustment).")
+    pdf.body_text(f"(Based on a daily target of {daily_water:.1f} Litres/day for {data['people']} adults, including a climate adjustment if applicable).")
     
     pdf.subsection_title("Your Daily Breakdown:")
-    pdf.body_text(f"- Drinking & Hydration: {daily_water * 0.5:.0f} L / day")
-    pdf.body_text(f"- Cooking & Food Prep: {daily_water * 0.25:.0f} L / day")
-    pdf.body_text(f"- Basic Hygiene: {daily_water * 0.25:.0f} L / day")
+    # Use the breakdown from data
+    breakdown = data.get('water_breakdown', {})
+    pdf.body_text(f"- Drinking & Hydration: {breakdown.get('drinking', 0):.0f} L / day")
+    pdf.body_text(f"- Cooking & Food Prep: {breakdown.get('food_prep', 0):.0f} L / day")
+    if breakdown.get('hygiene', 0) > 0:
+        pdf.body_text(f"- Basic Hygiene: {breakdown['hygiene']:.0f} L / day")
+    pdf.body_text(f"- Pets: {breakdown.get('pets', 0):.0f} L / day")
+    if breakdown.get('climate_factor', 1.0) > 1.0:
+        pdf.body_text(f"- Climate adjustment: +{(breakdown['climate_factor']-1)*100:.0f}%")
 
-    containers = data['water_containers']
+    containers = math.ceil(data['water_total'] / 20)  # round up
     weight = data['water_weight']
     pdf.subsection_title("How to Actually Store This:")
     pdf.body_text("You don't need expensive water tanks. The easiest way to store this much water is using standard, heavy-duty 20-litre jerry cans.")
-    pdf.body_text(f"- You need: {int(containers)} x 20L Food-Grade Water Containers.")
+    pdf.body_text(f"- You need: {containers} x 20L Food-Grade Water Containers.")
     pdf.body_text("- Where to buy: Bunnings, Mitre 10, or local camping stores (approx. NZD 25-35 each). Make sure they are stamped 'Food Grade'.")
-    pdf.body_text(f"- Storage Rules: Store them on the floor (never on high shelves; {total_water:.0f}L weighs {weight:.0f}kg). Keep out of direct sunlight.")
+    pdf.body_text(f"- Storage Rules: Store them on the floor (never on high shelves; {total_water:.0f}L weighs {weight:.1f}kg). Keep out of direct sunlight.")
     pdf.body_text("- Maintenance: Add a piece of masking tape with today's date. Empty and refill once a year (or every 6 months if using tap water).")
 
     # PAGE 3: Power & Communications
@@ -120,6 +141,7 @@ def generate_calmera_pdf(data):
     pdf.body_text("When the grid goes down, you need to keep phones charged for emergency alerts, run basic lighting, and potentially save your fridge food.")
     pdf.body_text(f"Your Daily Energy Target: {data['power_daily_wh']:.0f} Watt-hours (Wh)")
     pdf.body_text("(This covers an energy-efficient fridge, phone charges, a laptop, and basic LED lighting).")
+    pdf.body_text("Note: A Watt-hour (Wh) is a unit of energy. For example, a 100Wh battery can run a 10W LED light for 10 hours.")
 
     pdf.subsection_title("Your Purchase Options:")
     pdf.body_text("Option 1: The Full Backup (Run the Fridge + Devices)")
@@ -142,9 +164,11 @@ def generate_calmera_pdf(data):
     pdf.add_page()
     pdf.section_title("Sanitation System")
     pdf.body_text("If water mains break or sewer lines are damaged, flushing the toilet becomes impossible. This is a primary cause of illness following disasters. The 'Two-Bucket System' is cheap, sanitary, and highly effective.")
+    pdf.body_text("We recommend 1 bucket for every 2 people. For a household of 1-2 people, 1 bucket is sufficient. For 3-4 people, 2 buckets, etc.")
 
     pdf.subsection_title("Your Household Needs:")
-    pdf.body_text(f"- 2 x Heavy Duty Buckets (with tight-fitting lids)")
+    buckets = data['sanitation_buckets']
+    pdf.body_text(f"- {buckets} x Heavy Duty Buckets (with tight-fitting lids)")
     pdf.body_text(f"- {data['sanitation_cover_kg']:.0f} kg of 'Cover Material' (Sawdust, peat moss, or cheap clay kitty litter)")
     pdf.body_text("- Heavy-duty compostable bin liners")
     pdf.body_text(f"- {data['sanitation_sanitizer_l']:.1f} L of hand sanitiser")
@@ -161,7 +185,7 @@ def generate_calmera_pdf(data):
     pdf.body_text("Tear this page out and take it to the store.")
 
     pdf.subsection_title("Hardware Store (Mitre 10 / Bunnings)")
-    pdf.body_text(f"[ ] {int(containers)} x 20L Food-Grade Water Containers")
+    pdf.body_text(f"[ ] {containers} x 20L Food-Grade Water Containers")
     pdf.body_text("[ ] 2 x 20L Heavy Duty Buckets with lids")
     pdf.body_text("[ ] 1 x Bag of Sawdust / Wood Shavings (or kitty litter from supermarket)")
     pdf.body_text("[ ] Heavy-duty rubbish bags")
@@ -177,7 +201,7 @@ def generate_calmera_pdf(data):
     pdf.body_text("[ ] Basic First Aid supplies (Panadol, plasters, antiseptic cream)")
     pdf.body_text("[ ] 7 days of non-perishable food (canned goods, rice, oats - buy what you actually eat)")
 
-    pdf.subsection_title("💰 Quick Start Bundle (under $100)")
+    pdf.subsection_title("Quick Start Bundle (under $100)")
     pdf.body_text("If you can only spend $100 this weekend, start here:")
     pdf.body_text("- 2 x 20L water containers (Bunnings/Mitre 10)")
     pdf.body_text("- 2 x 20,000mAh power banks (PB Tech/Noel Leeming)")
