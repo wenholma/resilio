@@ -2,6 +2,7 @@ from fpdf import FPDF
 from datetime import datetime
 import textwrap
 import math
+import re
 
 class PDF(FPDF):
     def header(self):
@@ -19,7 +20,7 @@ class PDF(FPDF):
         self.cell(0, 6, "For personal use only. Not official emergency advice.", 0, 0, "C")
 
     def _clean_text(self, text):
-        import re
+        # Remove emojis
         emoji_pattern = re.compile("["
             u"\U0001F600-\U0001F64F"
             u"\U0001F300-\U0001F5FF"
@@ -29,7 +30,15 @@ class PDF(FPDF):
             u"\U000024C2-\U0001F251"
             "]+", flags=re.UNICODE)
         text = emoji_pattern.sub(r'', text)
-        replacements = {"—": "-", "–": "-", "•": "-", "’": "'", "‘": "'", "“": '"', "”": '"', "…": "...", "✓": "√", "✗": "x"}
+        # Replace special characters with ASCII equivalents
+        replacements = {
+            "—": "-", "–": "-", "•": "-", "’": "'", "‘": "'",
+            "“": '"', "”": '"', "…": "...", "✓": "√", "✗": "x",
+            "≥": ">=", "≤": "<=", "→": "->", "←": "<-",
+            "°": " deg",  # degree symbol
+            "×": "x",     # multiplication sign
+            "±": "+/-"
+        }
         for old, new in replacements.items():
             text = text.replace(old, new)
         return text
@@ -65,7 +74,7 @@ class PDF(FPDF):
         self.ln(1)
 
     def metric_box(self, label, value, unit, x=None, y=None):
-        # Simple box around a metric
+        # Simple box around a metric (optional)
         if x is None:
             x = self.get_x()
         if y is None:
@@ -219,13 +228,13 @@ def generate_calmera_pdf(data):
     pdf.section_title("How We Calculated Your Numbers")
     pdf.body_text("We used public health guidelines (WHO, Red Cross, Civil Defence) and standard appliance consumption to create your personalised plan.")
     pdf.subsection_title("Water Formula")
-    pdf.body_text(f"- Drinking: 2 L × {data['people']} people × {data['days']} days = {data['water_breakdown']['drinking']:.0f} L")
-    pdf.body_text(f"- Food prep: 1 L × {data['people']} people × {data['days']} days = {data['water_breakdown']['food_prep']:.0f} L")
+    pdf.body_text(f"- Drinking: 2 L x {data['people']} people x {data['days']} days = {data['water_breakdown']['drinking']:.0f} L")
+    pdf.body_text(f"- Food prep: 1 L x {data['people']} people x {data['days']} days = {data['water_breakdown']['food_prep']:.0f} L")
     if data['hygiene_plus']:
-        pdf.body_text(f"- Hygiene: 2 L × {data['people']} people × {data['days']} days = {data['water_breakdown']['hygiene']:.0f} L")
+        pdf.body_text(f"- Hygiene: 2 L x {data['people']} people x {data['days']} days = {data['water_breakdown']['hygiene']:.0f} L")
     pdf.body_text(f"- Pets: {data['water_breakdown']['pets']:.0f} L")
     if data['water_breakdown']['climate_factor'] > 1:
-        pdf.body_text(f"- Climate factor (×{data['water_breakdown']['climate_factor']}) applied to total")
+        pdf.body_text(f"- Climate factor (x{data['water_breakdown']['climate_factor']}) applied to total")
     pdf.body_text(f"= Total {data['water_total']:.0f} L")
 
     # PAGE 7: Calculations continued + Legal
@@ -242,15 +251,21 @@ def generate_calmera_pdf(data):
 
     pdf.subsection_title("Sanitation Formula")
     pdf.body_text(f"- Buckets: max(1, ({data['people']}+1)//2) = {data['sanitation_buckets']}")
-    pdf.body_text(f"- Cover material: 0.1 kg × {data['people']} people × {data['days']} days = {data['sanitation_cover_kg']:.0f} kg")
-    pdf.body_text(f"- Hand sanitiser: 0.02 L × {data['people']} people × {data['days']} days = {data['sanitation_sanitizer_l']:.1f} L")
+    pdf.body_text(f"- Cover material: 0.1 kg x {data['people']} people x {data['days']} days = {data['sanitation_cover_kg']:.0f} kg")
+    pdf.body_text(f"- Hand sanitiser: 0.02 L x {data['people']} people x {data['days']} days = {data['sanitation_sanitizer_l']:.1f} L")
 
     pdf.subsection_title("Score Calculation")
-    pdf.body_text(f"- Water score: stored water ÷ (3 L × people × days) = {data['water_total']:.0f} / (3×{data['people']}×{data['days']}) = {min(1.0, data['water_total']/(3*data['people']*data['days'])):.2f}")
-    pdf.body_text(f"- Power score: 1.0 if battery ≥500 Wh else 0.5 → {1.0 if data['power_battery_wh']>=500 else 0.5}")
-    pdf.body_text(f"- Sanitation score: 1.0 if plan+cover else 0.3 → {1.0 if data['has_toilet_plan'] and data['has_cover_material'] else 0.3}")
-    pdf.body_text(f"- Comms score: (radio+contacts+map)/3 → {sum([data['has_radio'], data['has_contacts'], data['has_map']])/3:.2f}")
-    pdf.body_text(f"Overall average → {data['grade']}")
+    # Replace '≥' with '>=' in the string
+    water_score_val = min(1.0, data['water_total']/(3*data['people']*data['days']))
+    pdf.body_text(f"- Water score: stored water / (3 L x people x days) = {data['water_total']:.0f} / (3x{data['people']}x{data['days']}) = {water_score_val:.2f}")
+    power_score_val = 1.0 if data['power_battery_wh'] >= 500 else 0.5
+    pdf.body_text(f"- Power score: 1.0 if battery >= 500 Wh else 0.5 -> {power_score_val}")
+    sanitation_score_val = 1.0 if data['has_toilet_plan'] and data['has_cover_material'] else 0.3
+    pdf.body_text(f"- Sanitation score: 1.0 if plan+cover else 0.3 -> {sanitation_score_val}")
+    comms_score_val = sum([data['has_radio'], data['has_contacts'], data['has_map']]) / 3.0
+    pdf.body_text(f"- Comms score: (radio+contacts+map)/3 = {comms_score_val:.2f}")
+    overall_avg = (water_score_val + power_score_val + sanitation_score_val + comms_score_val) / 4.0
+    pdf.body_text(f"Overall average -> {overall_avg:.2f} = Grade {data['grade']}")
 
     pdf.section_title("Important Legal & Safety Information")
     pdf.subsection_title("Not Official Advice")
