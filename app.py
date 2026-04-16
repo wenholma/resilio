@@ -1,15 +1,15 @@
 import streamlit as st
 from logic import calculate_water_needs, calculate_power_needs, calculate_sanitation_needs
-from pdf_gen import generate_resilience_pdf
+from pdf_gen import generate_calmera_pdf
 
 st.set_page_config(
-    page_title="Resilio | Household Resilience Audit",
+    page_title="Calmera | Household Resilience Audit",
     page_icon="🛡️",
     layout="centered"
 )
 
 # ---------------------------------------------------------
-# LOGIN SYSTEM (EMAIL + OTP)
+# SESSION STATE SETUP
 # ---------------------------------------------------------
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
@@ -23,67 +23,119 @@ if "email" not in st.session_state:
 if "paid" not in st.session_state:
     st.session_state.paid = False
 
+if "show_login" not in st.session_state:
+    st.session_state.show_login = False
+
+# ---------------------------------------------------------
+# LANDING PAGE (VISIBLE TO ALL - NO LOGIN REQUIRED)
+# ---------------------------------------------------------
+if not st.session_state.logged_in and not st.session_state.show_login:
+    st.title("🛡️ Calmera — Household Resilience Audit")
+
+    st.subheader(
+        "A calm, practical way to understand how prepared your household is for short‑term disruptions."
+    )
+
+    st.markdown(
+        """
+    Most households want to feel prepared for disruptions like power outages, water interruptions, or severe weather — but it's hard to know where to start.
+
+    Calmera gives you a **clear, personalised snapshot** of your household's readiness, based on public‑health and civil‑defence guidance.
+
+    You'll complete a short audit (about **5 minutes**) and see your results instantly.  
+    You can also choose to download a **personalised 6‑page PDF blueprint** to keep.
+    """
+    )
+
+    st.markdown("---")
+
+    st.markdown(
+        """
+    ### What you'll get
+
+    - **Water plan** — how much you need, how to store it safely  
+    - **Essential power plan** — phones, lighting, and critical devices  
+    - **Sanitation setup** — simple, short‑term guidance  
+    - **Communications checklist** — staying informed when networks are slow  
+    - **30‑day maintenance routine** — a calm monthly check-in  
+    - **Personalised next steps** — small improvements that make a big difference  
+
+    All in a clear, printable 6‑page blueprint.
+    """
+    )
+
+    st.markdown("---")
+
+    st.markdown("### Ready to begin?")
+    st.markdown("No account needed — just an email to save your results.")
+
+    if st.button("✨ Start Your Free Audit", type="primary", use_container_width=True):
+        st.session_state.show_login = True
+        st.rerun()
+
+    st.divider()
+    st.caption(
+        """
+    This tool provides general household preparedness information only.
+    It does not provide medical, engineering, or emergency‑response advice.
+    Always follow official guidance during emergencies.
+    """
+    )
+    st.stop()
+
+# ---------------------------------------------------------
+# LOGIN SYSTEM (EMAIL + OTP)
+# ---------------------------------------------------------
 if not st.session_state.logged_in:
     st.header("🔐 Login to Begin Your Audit")
+    st.caption("Enter your email to receive a one‑time login code.")
 
-    email = st.text_input("Enter your email address")
+    email = st.text_input("Email address", placeholder="you@example.com")
 
-    if st.button("Send Login Code"):
-        import random
-        st.session_state.otp = str(random.randint(100000, 999999))
-        st.session_state.email = email
-        st.success(f"Your one-time login code is: {st.session_state.otp}")
-        st.info("In production, this would be emailed to you.")
+    col1, col2 = st.columns([1, 2])
+    with col1:
+        if st.button("📧 Send Login Code", use_container_width=True):
+            if email:
+                import random
+                st.session_state.otp = str(random.randint(100000, 999999))
+                st.session_state.email = email
+                st.success(f"Your one-time login code is: **{st.session_state.otp}**")
+                st.info("📬 In production, this would be emailed to you.")
+            else:
+                st.warning("Please enter your email address.")
 
     if st.session_state.otp:
-        entered_code = st.text_input("Enter the 6-digit code")
+        st.markdown("---")
+        entered_code = st.text_input("Enter the 6-digit code", placeholder="123456", max_chars=6)
 
-        if st.button("Verify Code"):
+        if st.button("✓ Verify Code", use_container_width=True):
             if entered_code == st.session_state.otp:
                 st.session_state.logged_in = True
-                st.success("Login successful!")
+                st.session_state.show_login = False
+                st.success("Login successful! Redirecting...")
+                st.rerun()
             else:
                 st.error("Incorrect code. Please try again.")
 
-    if not st.session_state.logged_in:
-        st.stop()
+    # Back button to landing page
+    if st.button("← Back to Home"):
+        st.session_state.show_login = False
+        st.rerun()
+
+    st.stop()
 
 # ---------------------------------------------------------
-# LANDING PAGE CONTENT
+# INTRO SECTION (POST-LOGIN)
 # ---------------------------------------------------------
-st.title("🛡️ Resilio — Household Resilience Audit")
-
-st.subheader(
-    "A calm, practical way to understand how prepared your household is for short‑term disruptions."
-)
+st.title("🛡️ Calmera — Household Resilience Audit")
 
 st.markdown(
     """
-Most households want to feel prepared for disruptions like power outages, water interruptions, or severe weather — but it's hard to know where to start.
-
-Resilio gives you a **clear, personalised snapshot** of your household's readiness, based on public‑health and civil‑defence guidance.
-
-You'll complete a short audit (about **5 minutes**) and see your results instantly.  
-You can also choose to download a **personalised 3‑page PDF blueprint** to keep.
+Welcome! Use the sidebar to enter your household details.  
+Your results will update automatically as you make changes.
 """
 )
 
-st.markdown(
-    """
-### What you'll get
-
-- **Water plan** — how much you need, how to store it safely  
-- **Essential power plan** — phones, lighting, and critical devices  
-- **Sanitation setup** — simple, short‑term guidance  
-- **Communications checklist** — staying informed when networks are slow  
-- **30‑day maintenance routine** — a calm monthly check-in  
-- **Personalised next steps** — small improvements that make a big difference  
-
-All in a clear, printable 3‑page blueprint.
-"""
-)
-
-st.markdown("### Ready to begin?")
 st.divider()
 
 # ---------------------------------------------------------
@@ -149,7 +201,7 @@ with st.sidebar:
     fridge = st.toggle(
         "Backup the fridge?",
         value=True,
-        help="This estimates the power needed to keep your fridge cold during an outage. It assumes short, infrequent door openings and typical household fridge efficiency. Optional — include only if keeping food cold is important for your household."
+        help="This estimates the power needed to keep your fridge cold during an outage. It assumes short, infrequent door openings and typical household fridge efficiency."
     )
 
     phones = st.number_input("Phones (daily charging)", 0, 10, 2)
@@ -158,7 +210,7 @@ with st.sidebar:
     led_lights = st.number_input(
         "LED lights (battery-powered)",
         0, 20, 3,
-        help="Enter the number of LED lights you plan to use during an outage. This helps estimate how much battery power you'll need for safe lighting at night."
+        help="Enter the number of LED lights you plan to use during an outage."
     )
 
     hours_of_light = st.slider("Hours of lighting each night", 1, 12, 5)
@@ -220,7 +272,7 @@ power_results = calculate_power_needs(
 sanitation_results = calculate_sanitation_needs(people, days)
 
 # ---------------------------------------------------------
-# RESILIO SCORE
+# CALMERA SCORE
 # ---------------------------------------------------------
 water_score = min(1.0, water_results["total_liters"] / (people * days * 3.0))
 power_score = 1.0 if power_results["recommended_battery_size"] >= 500 else 0.5
@@ -255,7 +307,7 @@ with col1:
 with col2:
     st.metric("Battery Capacity", f"{power_results['recommended_battery_size']} Wh")
 with col3:
-    st.metric("Resilio Score", grade)
+    st.metric("Calmera Score", grade)
 
 st.caption(
     "This score is a planning snapshot, not a guarantee of safety. "
@@ -327,41 +379,63 @@ st.markdown(
 )
 
 # ---------------------------------------------------------
-# PAYWALL
+# PAYWALL — Unlock PDF Blueprint (6 pages)
 # ---------------------------------------------------------
-st.divider()
-st.header("🔓 Unlock Your Personalised PDF Blueprint (NZD 9.99)")
+
+st.markdown("---")
+st.subheader("🔓 Unlock Your Personalised PDF Blueprint")
 
 st.markdown(
     """
-Download a **3‑page Household Resilience Blueprint** tailored to your inputs.
+### **NZD 9.99 — one‑time, lifetime access**
 
-It includes:
-- Exact water and power targets
-- Storage and weight‑distribution guidance
-- A simple sanitation plan
-- A communications checklist
-- A 30‑day maintenance routine
-- Personalised next steps
+Your personalised **6‑page Household Resilience Blueprint** includes:
 
-Complete it once. Save it. Revisit when your household changes.
+- **Clear explanations** of how every number is calculated  
+- **What each number means** for your household  
+- **Actionable suggestions** based on your specific answers  
+- Water, power, sanitation, and communications targets  
+- A simple emergency sanitation setup guide  
+- A 30‑day maintenance routine  
+- A tear‑out shopping list with specific products and stores  
+- Practical tips based on public‑health and civil‑defence guidance  
+
+This is a **one‑off payment**.  
+**No subscription. No recurring fees.**
 """
 )
-st.caption("No subscription. One‑time download.")
 
-STRIPE_LINK = "https://buy.stripe.com/9B64gA6Gm6FicsGbQ80sU01"
+# Stripe payment button (replace YOUR_NEW_LINK with your actual Stripe payment link)
+st.markdown(
+    """
+    <a href="https://buy.stripe.com/YOUR_NEW_LINK" target="_blank">
+        <button style="
+            background-color:#1a73e8;
+            color:white;
+            padding:12px 22px;
+            border:none;
+            border-radius:6px;
+            font-size:16px;
+            cursor:pointer;
+            margin-top:10px;
+        ">
+            Pay NZD 9.99
+        </button>
+    </a>
+    """,
+    unsafe_allow_html=True
+)
 
-st.link_button("Pay NZD 9.99 via Stripe", STRIPE_LINK)
+st.markdown(" ")
 
-st.info("After completing payment, click below:")
-
+# Confirmation button
 if st.button("I have completed payment"):
     st.session_state.paid = True
-    st.success("Payment confirmed!")
+    st.success("Payment confirmed. Your personalised PDF is now ready to download.")
 
 if st.session_state.paid:
     # ---------------------------------------------------------
-    # PREPARE DATA FOR 3-PAGE PDF (FIXED DUPLICATE LOGIC)
+    # PREPARE DATA FOR 6-PAGE PDF (enhanced)
     # ---------------------------------------------------------
     next_steps = []
 
@@ -376,7 +450,6 @@ if st.session_state.paid:
     elif power_results["recommended_battery_size"] < 500:
         next_steps.append("Consider a small battery or power bank for essential devices.")
 
-    # Fill remaining slots with general preparedness tips (no duplicates)
     general_tips = [
         "Review and refresh your household emergency supplies.",
         "Label water containers with fill dates and store away from sunlight.",
@@ -388,6 +461,23 @@ if st.session_state.paid:
         if len(next_steps) < 3:
             next_steps.append(tip)
 
+    # Additional suggestions for PDF
+    water_suggestions = []
+    if water_results["total_liters"] < people * days * 3:
+        water_suggestions.append("Your water storage is below the recommended minimum. Aim to store at least 3 litres per person per day.")
+    if water_results["weight_kg"] > 100:
+        water_suggestions.append("Water is heavy. Store containers on the floor, not on high shelves, to avoid injury.")
+    if climate_class in ["High Heat", "Extreme Heat"]:
+        water_suggestions.append("In hot climates, water needs increase. Consider adding 1-2 extra litres per person per day.")
+
+    power_suggestions = []
+    if power_results["recommended_battery_size"] < 300:
+        power_suggestions.append("A small power bank (200-300 Wh) can keep phones and lights running for a few days.")
+    elif power_results["recommended_battery_size"] > 2000:
+        power_suggestions.append("Consider a solar panel to recharge your battery during longer outages.")
+    if not fridge:
+        power_suggestions.append("Without fridge backup, plan to consume perishable foods first or use a cooler with ice.")
+
     pdf_data = {
         "people": people,
         "days": days,
@@ -395,50 +485,54 @@ if st.session_state.paid:
         "unit": temp_unit,
         "cats": cats,
         "dogs": dogs,
+        "hygiene_plus": hygiene_plus,
+        "climate_class": climate_class,
+        "has_toilet_plan": has_toilet_plan,
+        "has_cover_material": has_cover_material,
 
         "water_total": water_results["total_liters"],
-        "power_daily": power_results["daily_wh_required"],
-        "buckets": sanitation_results["buckets_needed"],
+        "water_daily": water_results["daily_requirement"],
+        "water_containers": round(water_results["containers_needed_20L"], 1),
+        "water_weight": water_results["weight_kg"],
+        "water_suggestions": water_suggestions,
 
-        "radio": "Yes" if has_radio else "No",
-        "contacts": "Yes" if has_contacts else "No",
-        "map": "Yes" if has_map else "No",
+        "power_daily_wh": power_results["daily_wh_required"],
+        "power_battery_wh": power_results["recommended_battery_size"],
+        "power_solar_wh": power_results["solar_panel_est"],
+        "power_suggestions": power_suggestions,
+
+        "sanitation_buckets": sanitation_results["buckets_needed"],
+        "sanitation_cover_kg": sanitation_results["cover_material_kg"],
+        "sanitation_sanitizer_l": sanitation_results["sanitizer_liters"],
+
+        "has_radio": has_radio,
+        "has_contacts": has_contacts,
+        "has_map": has_map,
 
         "grade": grade,
         "next_steps": next_steps[:3],
 
-        "water": {
-            "daily": water_results["daily_requirement"],
-            "total": water_results["total_liters"],
-            "containers": round(water_results["containers_needed_20L"], 1),
-            "weight": water_results["weight_kg"]
+        "water_breakdown": {
+            "drinking": people * days * 2.0,
+            "food_prep": people * days * 1.0,
+            "hygiene": (people * days * 2.0) if hygiene_plus else 0,
+            "pets": (cats * 0.2 + dogs * 1.0) * days,
+            "climate_factor": 1.2 if climate_class in ["High Heat", "Extreme Heat"] else 1.0
         },
-
-        "power": {
-            "daily_wh": power_results["daily_wh_required"],
-            "battery_wh": power_results["recommended_battery_size"],
-            "solar_wh": power_results["solar_panel_est"]
-        },
-
-        "sanitation": {
-            "buckets": sanitation_results["buckets_needed"],
-            "cover_kg": sanitation_results["cover_material_kg"],
-            "sanitizer_l": sanitation_results["sanitizer_liters"]
-        },
-
-        "comms": {
-            "radio": "Yes" if has_radio else "No",
-            "contacts": "Yes" if has_contacts else "No",
-            "map": "Yes" if has_map else "No"
+        "power_breakdown": {
+            "fridge_wh": 1200 if fridge else 0,
+            "phone_wh": phones * 15,
+            "laptop_wh": laptops * 60,
+            "light_wh": led_lights * 5 * hours_of_light
         }
     }
 
-    pdf_bytes = generate_resilience_pdf(pdf_data)
+    pdf_bytes = generate_calmera_pdf(pdf_data)
 
     st.download_button(
-        label="📄 Download My Resilience Blueprint (PDF)",
+        label="📄 Download My Calmera Blueprint (PDF)",
         data=pdf_bytes,
-        file_name="Resilio_Blueprint.pdf",
+        file_name="Calmera_Blueprint.pdf",
         mime="application/pdf"
     )
 
@@ -448,8 +542,25 @@ if st.session_state.paid:
 st.divider()
 st.caption(
     """
-This tool provides general household preparedness information only.
-It does not provide medical, engineering, or emergency‑response advice.
-Always follow official guidance during emergencies.
-"""
+    This tool provides general household preparedness information only.
+    It does not provide medical, engineering, or emergency‑response advice.
+    Always follow official guidance during emergencies.
+    """
 )
+
+# Legal expanders (Terms & Privacy)
+with st.expander("📜 Terms of Service"):
+    st.markdown("""
+    **Terms of Service**  
+    Calmera provides general household preparedness guidance based on publicly available civil-defence and public-health recommendations. It is intended as a planning aid only.  
+    Calmera does not predict, prevent, or guarantee protection from any emergency, disaster, or disruption. Results are estimates based on user-provided inputs.  
+    Calmera is not a substitute for official emergency management guidance. Always follow official instructions.  
+    Use of this tool is at your own risk.
+    """)
+
+with st.expander("🔒 Privacy Policy"):
+    st.markdown("""
+    **Privacy Policy**  
+    Calmera collects your email address solely to send you a one‑time login code and to deliver your PDF blueprint. We do not share, sell, or rent your email address.  
+    We retain email addresses for 90 days after your last login. Payments are processed by Stripe; we do not store credit card details.
+    """)
