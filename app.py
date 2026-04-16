@@ -230,6 +230,17 @@ with st.sidebar:
     has_contacts = st.checkbox("Printed emergency contacts.", value=False)
     has_map = st.checkbox("Local paper map.", value=False)
 
+    st.divider()
+    st.header("💰 Quick Start under $100")
+    st.caption("Get started this weekend with these essentials:")
+    st.markdown("""
+    - **2 x 20L water containers** – $50–60  
+    - **2 x 20,000mAh power banks** – $60–80  
+    - **1 x bucket + bag of kitty litter** – $20  
+    - **Battery‑powered radio** – $30  
+    **Total ≈ $100–120** – covers water, basic power, sanitation, comms.
+    """)
+
 # ---------------------------------------------------------
 # CLIMATE LOGIC
 # ---------------------------------------------------------
@@ -381,6 +392,36 @@ if people > 0:
     )
 
     # ---------------------------------------------------------
+    # CALCULATION TRANSPARENCY (collapsible)
+    # ---------------------------------------------------------
+    with st.expander("📐 How we calculated these numbers"):
+        st.markdown("""
+        **Water needs** – Based on WHO & Red Cross guidelines:  
+        - 2 L/person/day for drinking  
+        - 1 L/person/day for food preparation  
+        - 2 L/person/day for basic hygiene (if enabled)  
+        - Pets: 0.2 L/day per cat, 1 L/day per dog  
+        - Climate adjustment: +20% for High/Extreme Heat  
+
+        **Power needs** – Typical device consumption:  
+        - Fridge: 1200 Wh/day (efficient model, short openings)  
+        - Phone: 15 Wh/charge  
+        - Laptop: 60 Wh/charge  
+        - LED light: 5 Wh/hour per light  
+
+        **Sanitation** – Based on public health emergency guides:  
+        - 1 bucket per 2 people per 3–5 days  
+        - Cover material: 0.5 kg/person/day  
+        - Hand sanitiser: 0.1 L/person/day  
+
+        **Calmera Score** – Average of:  
+        - Water score: stored water ÷ (3 L × people × days), capped at 1.0  
+        - Power score: 1.0 if battery ≥500 Wh else 0.5  
+        - Sanitation score: 1.0 if toilet plan + cover material else 0.3  
+        - Communications score: (radio + contacts + map) ÷ 3  
+        """)
+
+    # ---------------------------------------------------------
     # PAYWALL — Unlock PDF Blueprint
     # ---------------------------------------------------------
 
@@ -389,22 +430,22 @@ if people > 0:
 
     st.markdown(
         """
-    ### **NZD 9.99 — one‑time, lifetime access**
+### **NZD 9.99 — one‑time, lifetime access**
 
-    Your personalised **6‑page Household Resilience Blueprint** includes:
+Your personalised **6‑page Household Resilience Blueprint** includes:
 
-    - **Clear explanations** of how every number is calculated  
-    - **What each number means** for your household  
-    - **Actionable suggestions** based on your specific answers  
-    - Water, power, sanitation, and communications targets  
-    - A simple emergency sanitation setup guide  
-    - A 30‑day maintenance routine  
-    - A tear‑out shopping list with specific products and stores  
-    - Practical tips based on public‑health and civil‑defence guidance  
+- **Clear explanations** of how every number is calculated  
+- **What each number means** for your household  
+- **Actionable suggestions** based on your specific answers  
+- Water, power, sanitation, and communications targets  
+- A simple emergency sanitation setup guide  
+- A 30‑day maintenance routine  
+- A tear‑out shopping list with specific products and stores  
+- Practical tips based on public‑health and civil‑defence guidance  
 
-    This is a **one‑off payment**.  
-    **No subscription. No recurring fees.**
-    """
+This is a **one‑off payment**.  
+**No subscription. No recurring fees.**
+"""
     )
 
     # Stripe payment button (replace YOUR_NEW_LINK with your actual Stripe payment link)
