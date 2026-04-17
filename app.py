@@ -51,6 +51,7 @@ if not st.session_state.logged_in and not st.session_state.show_login:
     - **30‑day maintenance routine** — a calm monthly check-in  
     - **Personalised next steps** — small improvements that make a big difference  
     - **Full transparency** – exactly how every number is calculated  
+
     All in a clear, printable 7‑page blueprint.
     """)
     st.markdown("---")
@@ -109,7 +110,8 @@ with st.sidebar:
     st.header("🏠 Household Profile")
     people = st.number_input("People in household", min_value=0, value=0, help="Count everyone who will rely on your supplies.")
     temp_unit = st.radio("Temperature unit", ["°C", "°F"], horizontal=True)
-    temperature = st.number_input(f"Typical warm‑day temperature ({temp_unit})", value=0.0)
+    # Integer temperature only
+    temperature = st.number_input(f"Typical warm‑day temperature ({temp_unit})", value=0, step=1, help="An estimate of a warm daytime temperature where you live. Use whole number.")
     days = st.slider("How many days should this plan cover?", 3, 30, 3)
     st.divider()
     st.header("🐾 Life & Comfort")
@@ -195,7 +197,7 @@ if people > 0:
     with col1:
         st.metric("Total Water", f"{water_results['total_liters']:.1f} L", help=f"Minimum water needed for {days} days")
     with col2:
-        st.metric("Battery Capacity", f"{power_results['recommended_battery_size']:.0f} Wh", help="Watt-hours – energy needed")
+        st.metric("Battery Capacity", f"{power_results['recommended_battery_size']:.0f} Wh", help="Watt-hours (Wh) measure energy. A 500Wh battery can run a 50W light for 10 hours.")
     with col3:
         st.metric("Calmera Score", grade, help="A=Excellent, B=Good, C=Needs work, D/E=Significant gaps")
     st.caption("This score is a planning snapshot, not a guarantee of safety. It highlights where small improvements could make a big difference.")
@@ -239,18 +241,29 @@ if people > 0:
     st.subheader("🔓 Unlock Your Personalised PDF Blueprint")
     st.markdown("""
     ### **NZD 9.99 — one‑time, lifetime access**
+
     Your personalised **7‑page Household Resilience Blueprint** includes:
-    - **Clear explanations** of how every number is calculated  
-    - **What each number means** for your household  
-    - **Actionable suggestions** based on your specific answers  
-    - Water, power, sanitation, and communications targets  
-    - A simple emergency sanitation setup guide  
-    - A 30‑day maintenance routine  
-    - A tear‑out shopping list with specific products and stores  
-    - Practical tips based on public‑health and civil‑defence guidance  
-    This is a **one‑off payment**. **No subscription. No recurring fees.**
+
+    - **Clear explanations** of how every number is calculated.  
+    - **What each number means** for your household.  
+    - **Actionable suggestions** based on your specific answers.  
+    - Water, power, sanitation, and communications targets.  
+    - A simple emergency sanitation setup guide.  
+    - A 30‑day maintenance routine.  
+    - A tear‑out shopping list with specific products and stores.  
+    - Practical tips based on public‑health and civil‑defence guidance.  
+
+    This is a **one‑off payment**.  
+    **No subscription. No recurring fees.**
     """)
-    st.markdown('<a href="https://buy.stripe.com/YOUR_NEW_LINK" target="_blank"><button style="background-color:#1a73e8;color:white;padding:12px 22px;border:none;border-radius:6px;font-size:16px;cursor:pointer;">Pay NZD 9.99</button></a>', unsafe_allow_html=True)
+    # Stripe payment button (replace YOUR_NEW_LINK with your actual Stripe payment link)
+    st.markdown("""
+    <a href="https://buy.stripe.com/YOUR_NEW_LINK" target="_blank">
+        <button style="background-color:#1a73e8;color:white;padding:12px 22px;border:none;border-radius:6px;font-size:16px;cursor:pointer;">
+            Pay NZD 9.99
+        </button>
+    </a>
+    """, unsafe_allow_html=True)
     st.markdown(" ")
     if st.button("I have completed payment"):
         st.session_state.paid = True
@@ -259,14 +272,24 @@ if people > 0:
     if st.session_state.paid:
         # Prepare PDF data
         next_steps = []
-        if not has_radio: next_steps.append("Add a battery or wind-up radio for reliable updates.")
-        elif not has_contacts: next_steps.append("Print a list of emergency contacts and keep it accessible.")
-        elif not has_map: next_steps.append("Keep a local paper map in case digital navigation fails.")
-        elif water_results["total_liters"] < people * days * 3: next_steps.append("Increase stored water to meet minimum daily needs.")
-        elif power_results["recommended_battery_size"] < 500: next_steps.append("Consider a small battery or power bank for essential devices.")
-        general_tips = ["Review and refresh your household emergency supplies.", "Label water containers with fill dates and store away from sunlight.", "Test your battery-powered lights and charge devices monthly."]
+        if not has_radio:
+            next_steps.append("Add a battery or wind-up radio for reliable updates.")
+        elif not has_contacts:
+            next_steps.append("Print a list of emergency contacts and keep it accessible.")
+        elif not has_map:
+            next_steps.append("Keep a local paper map in case digital navigation fails.")
+        elif water_results["total_liters"] < people * days * 3:
+            next_steps.append("Increase stored water to meet minimum daily needs.")
+        elif power_results["recommended_battery_size"] < 500:
+            next_steps.append("Consider a small battery or power bank for essential devices.")
+        general_tips = [
+            "Review and refresh your household emergency supplies.",
+            "Label water containers with fill dates and store away from sunlight.",
+            "Test your battery-powered lights and charge devices monthly."
+        ]
         for tip in general_tips:
-            if len(next_steps) < 3: next_steps.append(tip)
+            if len(next_steps) < 3:
+                next_steps.append(tip)
 
         pdf_data = {
             "people": people, "days": days, "temperature": temperature, "unit": temp_unit,
@@ -283,14 +306,17 @@ if people > 0:
             "has_radio": has_radio, "has_contacts": has_contacts, "has_map": has_map,
             "grade": grade, "next_steps": next_steps[:3],
             "water_breakdown": {
-                "drinking": people * days * 2.0, "food_prep": people * days * 1.0,
+                "drinking": people * days * 2.0,
+                "food_prep": people * days * 1.0,
                 "hygiene": (people * days * 2.0) if hygiene_plus else 0,
                 "pets": (cats * 0.2 + dogs * 1.0) * days,
                 "climate_factor": 1.2 if climate_class in ["High Heat", "Extreme Heat"] else 1.0
             },
             "power_breakdown": {
-                "fridge_wh": 1200 if fridge else 0, "phone_wh": phones * 15,
-                "laptop_wh": laptops * 60, "light_wh": led_lights * 5 * hours_of_light
+                "fridge_wh": 1200 if fridge else 0,
+                "phone_wh": phones * 15,
+                "laptop_wh": laptops * 60,
+                "light_wh": led_lights * 5 * hours_of_light
             }
         }
         pdf_bytes = generate_calmera_pdf(pdf_data)
@@ -298,10 +324,61 @@ if people > 0:
 else:
     st.info("👈 Please enter your household details in the sidebar to see your resilience plan.")
 
-# Footer
+# ---------------------------------------------------------
+# DISCLAIMER & LEGAL
+# ---------------------------------------------------------
 st.divider()
 st.caption("This tool provides general household preparedness information only. It does not provide medical, engineering, or emergency‑response advice. Always follow official guidance during emergencies.")
+
 with st.expander("📜 Terms of Service"):
-    st.markdown("**Terms of Service**  \nCalmera provides general household preparedness guidance...")
+    st.markdown("""
+    **Terms of Service**  
+    Last updated: April 2026  
+
+    **1. Acceptance of Terms**  
+    By using Calmera ("the Service"), you agree to these Terms of Service. If you do not agree, do not use the Service.  
+
+    **2. Description of Service**  
+    Calmera provides general household preparedness guidance based on publicly available civil-defence and public-health recommendations. It is intended as a planning aid only.  
+
+    **3. No Guarantee of Safety**  
+    Calmera does not predict, prevent, or guarantee protection from any emergency, disaster, or disruption. Results are estimates based on user-provided inputs. Actual household needs may vary.  
+
+    **4. Not Official Advice**  
+    Calmera is not a substitute for official emergency management guidance. During any emergency, always follow instructions from civil defence, emergency services, and local authorities.  
+
+    **5. Limitation of Liability**  
+    Calmera makes no warranties, express or implied, about the accuracy, completeness, or fitness for purpose of the information provided. Use of this tool is at your own risk.  
+
+    **6. Changes to Terms**  
+    We may update these Terms from time to time. Continued use constitutes acceptance of the updated Terms.  
+
+    **7. Contact**  
+    For questions, contact [your email address].  
+    """)
+
 with st.expander("🔒 Privacy Policy"):
-    st.markdown("**Privacy Policy**  \nCalmera collects your email address solely to send you a one‑time login code...")
+    st.markdown("""
+    **Privacy Policy**  
+    Last updated: April 2026  
+
+    **1. Data We Collect**  
+    Calmera collects your email address solely to send you a one‑time login code and to deliver your PDF blueprint. We do not share, sell, or rent your email address to any third party.  
+
+    **2. How We Use Data**  
+    - To authenticate your login via OTP.  
+    - To deliver your purchased PDF.  
+    - To improve the Service (aggregated, anonymised).  
+
+    **3. Data Retention**  
+    We retain email addresses for 90 days after your last login, after which they are permanently deleted.  
+
+    **4. Payment Processing**  
+    Payments are processed by Stripe. We do not store credit card details. Stripe's privacy policy applies to payment information.  
+
+    **5. Your Rights**  
+    You may request deletion of your email address by contacting us.  
+
+    **6. Changes to This Policy**  
+    We may update this policy. Continued use indicates acceptance.  
+    """)
