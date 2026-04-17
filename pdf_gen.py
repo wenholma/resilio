@@ -166,3 +166,27 @@ def generate_calmera_pdf(data):
     pdf.set_font("Helvetica", "B", 11)
     pdf.cell(0, 7, "How We Calculated Your Numbers", 0, 1)
     pdf.set_font("Helvetica", "", 9)
+    pdf.multi_cell(0, 4, pdf._clean_text(
+        "These formulas are based on public health and civil defence guidelines (WHO, Red Cross, NZ Civil Defence) to give you a tailored, realistic plan.\n\n"
+        "💧 Water: 3L per person daily (2L drinking + 1L food prep). Pets: 1L/day per dog, 0.2L/day per cat. Climate: +20% for High/Extreme Heat.\n"
+        f"⚡ Power: Your {data['power_daily_wh']:.0f} Wh daily target aggregates your selected devices (e.g., {data['power_breakdown']['phone_wh']:.0f}Wh phones, {data['power_breakdown']['laptop_wh']:.0f}Wh laptop) plus a 20% buffer.\n"
+        "🚽 Sanitation: Two‑bucket system – 0.1kg cover material per person per day, 0.02L hand sanitiser per person per day.\n"
+        "📊 Score: Average of water, power, sanitation, and communications scores, each capped at 100%."
+    ), border=0, fill=True)
+    pdf.ln(2)
+
+    # SAFELY EXPORT TO STREAMLIT
+    output_data = pdf.output(dest="S")
+    
+    # Handle different versions of the fpdf library explicitly
+    if isinstance(output_data, str):
+        # Classic fpdf library returns a latin-1 encoded string
+        return output_data.encode("latin-1")
+    elif isinstance(output_data, (bytearray, bytes)):
+        # Modern fpdf2 library returns bytes/bytearray natively
+        return bytes(output_data)
+    elif output_data is None:
+        # Fallback just in case dest="S" evaluates to None 
+        return bytes(pdf.output())
+    else:
+        return bytes(output_data)
