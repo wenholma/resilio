@@ -102,15 +102,15 @@ def generate_calmera_pdf(data):
     pdf.cell(0, 5, f"Tailored for {data['people']} Adult(s), {data['cats']+data['dogs']} Pets | {data['days']}-Day Horizon | Generated {datetime.now().strftime('%d %B %Y')}", 0, 1, "C")
     pdf.ln(6)
 
-    # Score with progress bar
-    overall_score_val = data.get('overall_score', 0)  # should be passed
-    # If not passed, compute from components
-    if 'overall_score' not in data:
-        water_score = min(100, (data['water_total'] / (data['people'] * data['days'] * 3)) * 100)
-        power_score = 100 if data['power_battery_wh'] >= 500 else 50
-        sanitation_score = 100 if data['has_toilet_plan'] and data['has_cover_material'] else 30
-        comms_score = (sum([data['has_radio'], data['has_contacts'], data['has_map']]) / 3) * 100
-        overall_score_val = (water_score + power_score + sanitation_score + comms_score) / 4
+    # 1. ALWAYS calculate component scores unconditionally
+    water_score = min(100, (data['water_total'] / (data['people'] * data['days'] * 3)) * 100)
+    power_score = 100 if data['power_battery_wh'] >= 500 else 50
+    sanitation_score = 100 if data['has_toilet_plan'] and data['has_cover_material'] else 30
+    comms_score = (sum([data['has_radio'], data['has_contacts'], data['has_map']]) / 3) * 100
+
+    # 2. Get overall score (use passed value or fallback calculation)
+    overall_score_val = data.get('overall_score', (water_score + power_score + sanitation_score + comms_score) / 4)
+    
     grade = data['grade']
     grade_text = f"Grade: {grade} - {'Well Prepared' if grade in ['A','B'] else 'Action Needed' if grade == 'C' else 'Significant Gaps'}"
     pdf.set_font("Helvetica", "B", 14)
@@ -125,15 +125,10 @@ def generate_calmera_pdf(data):
 
     # Readiness at a glance (badges)
     pdf.section_title("Readiness at a Glance")
-    water_pct = min(100, (data['water_total'] / (data['people'] * data['days'] * 3)) * 100)
-    power_pct = 100 if data['power_battery_wh'] >= 500 else 50
-    sanitation_pct = 100 if data['has_toilet_plan'] and data['has_cover_material'] else 30
-    comms_pct = (sum([data['has_radio'], data['has_contacts'], data['has_map']]) / 3) * 100
-
-    pdf.body_text(f"💧 Water Readiness: {water_pct:.0f}% — {'Fully covered' if water_pct >= 80 else 'Partial coverage'}")
-    pdf.body_text(f"⚡ Power Backup: {power_pct:.0f}% — {'Full backup' if power_pct >= 80 else 'Partial coverage'}")
-    pdf.body_text(f"🚽 Sanitation Plan: {sanitation_pct:.0f}% — {'System in place' if sanitation_pct >= 80 else 'Missing'}")
-    pdf.body_text(f"📻 Communications: {comms_pct:.0f}% — {'Complete' if comms_pct >= 80 else 'Gaps to address'}")
+    pdf.body_text(f"💧 Water Readiness: {water_score:.0f}% — {'Fully covered' if water_score >= 80 else 'Partial coverage'}")
+    pdf.body_text(f"⚡ Power Backup: {power_score:.0f}% — {'Full backup' if power_score >= 80 else 'Partial coverage'}")
+    pdf.body_text(f"🚽 Sanitation Plan: {sanitation_score:.0f}% — {'System in place' if sanitation_score >= 80 else 'Missing'}")
+    pdf.body_text(f"📻 Communications: {comms_score:.0f}% — {'Complete' if comms_score >= 80 else 'Gaps to address'}")
     pdf.ln(4)
 
     # Top 3 actions this week
@@ -171,15 +166,3 @@ def generate_calmera_pdf(data):
     pdf.set_font("Helvetica", "B", 11)
     pdf.cell(0, 7, "How We Calculated Your Numbers", 0, 1)
     pdf.set_font("Helvetica", "", 9)
-    pdf.multi_cell(0, 4, self._clean_text(
-        "These formulas are based on public health and civil defence guidelines (WHO, Red Cross, NZ Civil Defence) to give you a tailored, realistic plan.\n\n"
-        "💧 Water: 3L per person daily (2L drinking + 1L food prep). Pets: 1L/day per dog, 0.2L/day per cat. Climate: +20% for High/Extreme Heat.\n"
-        f"⚡ Power: Your {data['power_daily_wh']:.0f} Wh daily target aggregates your selected devices (e.g., {data['power_breakdown']['phone_wh']:.0f}Wh phones, {data['power_breakdown']['laptop_wh']:.0f}Wh laptop) plus a 20% buffer.\n"
-        "🚽 Sanitation: Two‑bucket system – 0.1kg cover material per person per day, 0.02L hand sanitiser per person per day.\n"
-        "📊 Score: Average of water, power, sanitation, and communications scores, each capped at 100%."
-    ), border=0, fill=True)
-    pdf.ln(2)
-
-    # Legal footer is handled by footer()
-
-    return bytes(pdf.output(dest="S"))
