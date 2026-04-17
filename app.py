@@ -39,7 +39,7 @@ if not st.session_state.logged_in and not st.session_state.show_login:
     Calmera gives you a **clear, personalised snapshot** of your household's readiness, based on public‑health and civil‑defence guidance.
 
     You'll complete a short audit (about **5 minutes**) and see your results instantly.  
-    You can also choose to download a **personalised 7‑page PDF blueprint** to keep.
+    You can also choose to download a **personalised 2‑page PDF blueprint** to keep.
     """)
     st.markdown("---")
     st.markdown("""
@@ -52,7 +52,7 @@ if not st.session_state.logged_in and not st.session_state.show_login:
     - **Personalised next steps** — small improvements that make a big difference  
     - **Full transparency** – exactly how every number is calculated  
 
-    All in a clear, printable 7‑page blueprint.
+    All in a clear, printable 2‑page dashboard.
     """)
     st.markdown("---")
     st.markdown("### Ready to begin?")
@@ -105,13 +105,12 @@ st.title("🛡️ Calmera — Household Resilience Audit")
 st.markdown("Welcome! Use the sidebar to enter your household details. Your results will update automatically as you make changes.")
 st.divider()
 
-# SIDEBAR INPUTS (all start at zero)
+# SIDEBAR INPUTS
 with st.sidebar:
     st.header("🏠 Household Profile")
     people = st.number_input("People in household", min_value=0, value=0, help="Count everyone who will rely on your supplies.")
     temp_unit = st.radio("Temperature unit", ["°C", "°F"], horizontal=True)
-    # Integer temperature only
-    temperature = st.number_input(f"Typical warm‑day temperature ({temp_unit})", value=0, step=1, help="An estimate of a warm daytime temperature where you live. Use whole number.")
+    temperature = st.number_input(f"Typical warm‑day temperature ({temp_unit})", value=0, step=1, help="Whole number only.")
     days = st.slider("How many days should this plan cover?", 3, 30, 3)
     st.divider()
     st.header("🐾 Life & Comfort")
@@ -134,15 +133,29 @@ with st.sidebar:
     has_radio = st.checkbox("Battery-powered or wind-up radio.", value=False)
     has_contacts = st.checkbox("Printed emergency contacts.", value=False)
     has_map = st.checkbox("Local paper map.", value=False)
+
     st.divider()
-    st.header("💰 Quick Start under $100")
-    st.markdown("""
-    - **2 x 20L water containers** – $50–60  
-    - **2 x 20,000mAh power banks** – $60–80  
-    - **1 x bucket + bag of kitty litter** – $20  
-    - **Battery‑powered radio** – $30  
-    **Total ≈ $100–120** – covers water, basic power, sanitation, comms.
-    """)
+    st.header("💰 Starter Kits for Any Budget")
+    with st.expander("🌊 Under $100 – Water + Sanitation"):
+        st.markdown("""
+        - **2 x 20L water containers** – $50-60
+        - **1 x bucket + kitty litter** – $20
+        - **Total ≈ $70-80** – Safe water for 1 week + emergency toilet.
+        """)
+    with st.expander("🔋 Under $100 – Power + Comms"):
+        st.markdown("""
+        - **2 x 20,000mAh power banks** – $60-80
+        - **Battery-powered radio** – $30
+        - **Total ≈ $90-110** – Phones charged + emergency broadcasts.
+        """)
+    with st.expander("✅ Full Starter Kit (all 4 categories)"):
+        st.markdown("""
+        - **2 x 20L water containers** – $50-60
+        - **2 x 20,000mAh power banks** – $60-80
+        - **1 x bucket + kitty litter** – $20
+        - **Battery-powered radio** – $30
+        - **Total ≈ $160-190** – Covers water, power, sanitation, and communications.
+        """)
 
 # Climate classification
 def classify_climate(temp_value, unit):
@@ -177,11 +190,12 @@ if people > 0:
     sanitation_results['sanitizer_liters'] = round(people * days * 0.02, 1)
 
     # Score calculation
-    water_score = min(1.0, water_results["total_liters"] / (people * days * 3.0))
-    power_score = 1.0 if power_results["recommended_battery_size"] >= 500 else 0.5
-    sanitation_score = 1.0 if (has_toilet_plan and has_cover_material) else 0.3
-    comms_score = sum([has_radio, has_contacts, has_map]) / 3.0
-    overall_score = (water_score + power_score + sanitation_score + comms_score) / 4.0
+    water_score_raw = min(1.0, water_results["total_liters"] / (people * days * 3.0))
+    power_score_raw = 1.0 if power_results["recommended_battery_size"] >= 500 else 0.5
+    sanitation_score_raw = 1.0 if (has_toilet_plan and has_cover_material) else 0.3
+    comms_score_raw = sum([has_radio, has_contacts, has_map]) / 3.0
+    overall_score_raw = (water_score_raw + power_score_raw + sanitation_score_raw + comms_score_raw) / 4.0
+    overall_score_percent = overall_score_raw * 100
 
     def score_to_grade(score):
         if score >= 0.85: return "A"
@@ -189,7 +203,7 @@ if people > 0:
         elif score >= 0.55: return "C"
         elif score >= 0.4: return "D"
         else: return "E"
-    grade = score_to_grade(overall_score)
+    grade = score_to_grade(overall_score_raw)
 
     # Dashboard
     st.header("📊 Your Resilience Snapshot")
@@ -202,7 +216,7 @@ if people > 0:
         st.metric("Calmera Score", grade, help="A=Excellent, B=Good, C=Needs work, D/E=Significant gaps")
     st.caption("This score is a planning snapshot, not a guarantee of safety. It highlights where small improvements could make a big difference.")
 
-    # Detailed breakdown (shortened – no calculations)
+    # Detailed breakdown
     st.header("🔍 Detailed Breakdown")
     st.subheader("💧 Water details")
     containers_needed = math.ceil(water_results['total_liters'] / 20)
@@ -242,21 +256,18 @@ if people > 0:
     st.markdown("""
     ### **NZD 9.99 — one‑time, lifetime access**
 
-    Your personalised **7‑page Household Resilience Blueprint** includes:
+    Your personalised **2‑page Household Resilience Dashboard** includes:
 
-    - **Clear explanations** of how every number is calculated.  
-    - **What each number means** for your household.  
-    - **Actionable suggestions** based on your specific answers.  
-    - Water, power, sanitation, and communications targets.  
-    - A simple emergency sanitation setup guide.  
-    - A 30‑day maintenance routine.  
-    - A tear‑out shopping list with specific products and stores.  
-    - Practical tips based on public‑health and civil‑defence guidance.  
+    - **Your Calmera Score** with visual progress bar.  
+    - **Readiness at a glance** – water, power, sanitation, comms.  
+    - **The Bottom Line** – plain‑English explanation of your gaps.  
+    - **Your top 3 actions** for this week.  
+    - **Weekend shopping list** by store (Bunnings, PB Tech, supermarket).  
+    - **Full calculation transparency** – how every number is derived.  
 
     This is a **one‑off payment**.  
     **No subscription. No recurring fees.**
     """)
-    # Stripe payment button (replace YOUR_NEW_LINK with your actual Stripe payment link)
     st.markdown("""
     <a href="https://buy.stripe.com/YOUR_NEW_LINK" target="_blank">
         <button style="background-color:#1a73e8;color:white;padding:12px 22px;border:none;border-radius:6px;font-size:16px;cursor:pointer;">
@@ -292,19 +303,32 @@ if people > 0:
                 next_steps.append(tip)
 
         pdf_data = {
-            "people": people, "days": days, "temperature": temperature, "unit": temp_unit,
-            "cats": cats, "dogs": dogs, "hygiene_plus": hygiene_plus, "climate_class": climate_class,
-            "has_toilet_plan": has_toilet_plan, "has_cover_material": has_cover_material,
-            "water_total": water_results["total_liters"], "water_daily": water_results["daily_requirement"],
-            "water_containers": containers_needed, "water_weight": water_results["weight_kg"],
+            "people": people,
+            "days": days,
+            "temperature": temperature,
+            "unit": temp_unit,
+            "cats": cats,
+            "dogs": dogs,
+            "hygiene_plus": hygiene_plus,
+            "climate_class": climate_class,
+            "has_toilet_plan": has_toilet_plan,
+            "has_cover_material": has_cover_material,
+            "water_total": water_results["total_liters"],
+            "water_daily": water_results["daily_requirement"],
+            "water_containers": containers_needed,
+            "water_weight": water_results["weight_kg"],
             "power_daily_wh": power_results["daily_wh_required"],
             "power_battery_wh": power_results["recommended_battery_size"],
             "power_solar_wh": power_results["solar_panel_est"],
             "sanitation_buckets": sanitation_results["buckets_needed"],
             "sanitation_cover_kg": sanitation_results["cover_material_kg"],
             "sanitation_sanitizer_l": sanitation_results["sanitizer_liters"],
-            "has_radio": has_radio, "has_contacts": has_contacts, "has_map": has_map,
-            "grade": grade, "next_steps": next_steps[:3],
+            "has_radio": has_radio,
+            "has_contacts": has_contacts,
+            "has_map": has_map,
+            "grade": grade,
+            "next_steps": next_steps[:3],
+            "overall_score": overall_score_percent,
             "water_breakdown": {
                 "drinking": people * days * 2.0,
                 "food_prep": people * days * 1.0,
