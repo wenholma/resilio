@@ -19,7 +19,8 @@ class PDF(FPDF):
 
     def footer(self):
         self.set_y(-12)
-        self.set_font("Helvetica", "I", 7)  # Fixed: was "DejaVu", now "Helvetica"
+        # FIXED: Use Helvetica, not DejaVu
+        self.set_font("Helvetica", "I", 7)
         self.set_text_color(100, 100, 100)
         self.cell(0, 5, "General guidance only. Always follow official emergency advice.", 0, 0, "C")
         self.set_y(-8)
